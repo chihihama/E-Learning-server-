@@ -1,6 +1,7 @@
 import TryCatch from "../middlewares/TryCatch.js";
 import {Courses} from "../models/courses.js";
 import { Lecture } from "../models/Lecture.js";
+import { Documentation } from "../models/Documentation.js";
 import unlink from "fs";
 import { promisify } from "util";
 import fs from "fs";
@@ -48,6 +49,26 @@ export const addLecture = TryCatch(async (req, res) => {
         lecture,
     })
 }); 
+export const addDocumentation = TryCatch(async (req, res) => {
+    const course = await Courses.findById(req.params.id)
+    if (!course)
+        return res.status(404).json({
+            message: "No course with this id ",
+        });
+    const { title, description } = req.body;
+    const file = req.file;
+    const documentation = await Documentation.create({
+        title,
+        description,
+        pdf: file?.path,
+        course: course._id,
+    });
+    res.status(201).json({
+        message: "Documentation added",
+        documentation,
+    });
+});
+
 export const deleteLecture = TryCatch(async (req, res) => { 
     const lecture = await Lecture.findById(req.params.id)
 
@@ -59,6 +80,15 @@ export const deleteLecture = TryCatch(async (req, res) => {
 
         res.json({message:"Lecture deleted"})
 });
+export const deleteDocumentation = TryCatch(async (req, res) => {
+    const documentation = await Documentation.findById(req.params.id);
+
+    fs.unlink(documentation.pdf, () => {
+        console.log("PDF deleted");
+    });
+    await documentation.deleteOne();
+    res.json({ message: "Documentation deleted" });
+});
 
 const unlinkAsync =  promisify(fs.unlink)
 
@@ -67,6 +97,7 @@ export const deleteCourse = TryCatch(async (req, res) => {
    if (!course) return res.status(404).json({ message: "Course not found" });
 
    const lectures = await Lecture.find({ course: course._id });
+   const documentations = await Documentation.find({ course: course._id });
 
    // Delete lecture videos
    await Promise.all(
@@ -75,6 +106,13 @@ export const deleteCourse = TryCatch(async (req, res) => {
        console.log("Video deleted");
      })
    );
+    // Delete documentation PDFs
+    await Promise.all(
+      documentations.map(async (documentation) => {
+        await unlinkAsync(documentation.pdf);
+        console.log("PDF deleted");
+      })
+    );
 
    // Delete course image
    fs.unlink(course.image, () => {
@@ -83,6 +121,8 @@ export const deleteCourse = TryCatch(async (req, res) => {
 
    // ✅ Fix: Properly delete lecture documents
    await Lecture.deleteMany({ course: req.params.id });
+   // Delete documentation documents
+   await Documentation.deleteMany({ course: req.params.id });
 
    // Delete the course
    await course.deleteOne();
@@ -97,11 +137,13 @@ export const deleteCourse = TryCatch(async (req, res) => {
 export const getAllStats = TryCatch(async (req, res) => {
     const totalCourses = (await Courses.find()).length;
     const totalLectures = (await Lecture.find()).length;
+    const totalDocumentations = (await Documentation.find()).length;
     const totalUsers = (await User.find()).length;
 
     const stats = {
         totalCourses,
         totalLectures,
+        totalDocumentations,
         totalUsers,
     };
 
@@ -151,6 +193,3 @@ export const updateRole = TryCatch(async (req, res) => {
     message: "Invalid role state",
   });
 });
-
-
-        

@@ -4,6 +4,8 @@ import {
     getSingleCourse, 
     fetchLectures,
     fetchLecture,
+    fetchDocumentations,
+    fetchDocumentation,
     getMyCourses,
     checkout,
     paymentVerification,
@@ -17,6 +19,8 @@ router.get("/course/all", getAllCourses);
 router.get("/course/:id", getSingleCourse);  
 router.get("/lectures/:id", isAuth, fetchLectures);
 router.get("/lecture/:id", isAuth, fetchLecture);
+router.get("/documentations/:id", isAuth, fetchDocumentations);
+router.get("/documentation/:id", isAuth, fetchDocumentation);
 router.get("/mycourse", isAuth, getMyCourses);
 
 // PayPal Payment Routes

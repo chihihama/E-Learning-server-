@@ -2,10 +2,10 @@
 import TryCatch from "../middlewares/TryCatch.js";
 import { Courses } from "../models/courses.js";
 import { Lecture } from "../models/Lecture.js";
+import { Documentation } from "../models/Documentation.js";
 import { User } from "../models/User.js";
 import { Payment } from "../models/payments.js";
 import paypal from "paypal-rest-sdk";
-import { Progress } from "../models/progress.js";
 
 export const getAllCourses = TryCatch(async (req, res) => {
   const courses = await Courses.find();
@@ -31,6 +31,17 @@ export const fetchLectures = TryCatch(async (req, res) => {
 
   res.json({ lectures });
 });
+export const fetchDocumentations = TryCatch(async (req, res) => {
+  const documentations = await Documentation.find({ course: req.params.id });
+  const user = await User.findById(req.user._id);
+  if (user.role === "admin") {
+    return res.json({ documentations });
+  }
+  if (!user.subscription.includes(req.params.id)) {
+    return res.status(400).json({ message: "You have not subscribed to this course" });
+  }
+  res.json({ documentations });
+});
 
 export const fetchLecture = TryCatch(async (req, res) => {
   const lecture = await Lecture.findById(req.params.id);
@@ -45,6 +56,17 @@ export const fetchLecture = TryCatch(async (req, res) => {
   }
 
   res.json({ lecture });
+});
+export const fetchDocumentation = TryCatch(async (req, res) => {  
+  const documentation = await Documentation.findById(req.params.id);
+  const user = await User.findById(req.user._id);
+  if (user.role === "admin") {
+    return res.json({ documentation });
+  }
+  if (!user.subscription.includes(documentation.course.toString())) {
+    return res.status(400).json({ message: "You have not subscribed to this course" });
+  }
+  res.json({ documentation });
 });
 
 export const getMyCourses = TryCatch(async (req, res) => {
@@ -108,55 +130,11 @@ export const paymentVerification = TryCatch(async (req, res) => {
     if (!user.subscription.includes(courseId)) {
       user.subscription.push(courseId);
 
-      await Progress.create({
-        course: courseId,
-        completedLectures: [],
-        user: userId,
-      });
+     
 
       await user.save();
     }
 
     res.status(200).json({ message: "Payment successful" });
-  });
-});
-
-export const addProgress = TryCatch(async (req, res) => {
-  const progress = await Progress.findOne({
-    user: req.user._id,
-    course: req.query.course,
-  });
-
-  const { lectureId } = req.query;
-
-  if (progress.completedLectures.includes(lectureId)) {
-    return res.json({ message: "Progress already recorded" });
-  }
-
-  progress.completedLectures.push(lectureId);
-  await progress.save();
-
-  res.status(201).json({ message: "Progress updated" });
-});
-
-export const getYourProgress = TryCatch(async (req, res) => {
-  const progress = await Progress.findOne({
-    user: req.user._id,
-    course: req.query.course,
-  });
-
-  if (!progress) {
-    return res.status(404).json({ message: "Progress not found" });
-  }
-
-  const allLectures = await Lecture.countDocuments({ course: req.query.course });
-  const completedLectures = progress.completedLectures.length;
-  const courseProgressPercentage = Math.floor((completedLectures * 100) / allLectures);
-
-  res.json({
-    courseProgressPercentage,
-    completedLectures,
-    allLectures,
-    progress,
   });
 });
